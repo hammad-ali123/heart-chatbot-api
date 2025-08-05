@@ -11,6 +11,10 @@ explainer = shap.Explainer(model)
 
 app = Flask(__name__)
 
+@app.route('/', methods=['GET'])
+def home():
+    return "Heart Chatbot API is running"
+
 @app.route('/predict', methods=['POST'])
 def predict():
     input_data = request.json['data']
@@ -26,5 +30,4 @@ def predict():
     })
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
-
+    app.run(port=5000, host='0.0.0.0')  # already correctly set for Render
