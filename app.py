@@ -25,13 +25,23 @@ def predict():
         # Parse JSON from Dialogflow
         data = request.get_json(force=True)
 
-        # Extract parameters
+        # Extract parameters safely
         if "queryResult" not in data or "parameters" not in data["queryResult"]:
-            return jsonify({"fulfillmentText": "Missing parameters in request."}), 400
+            return jsonify({"fulfillmentText": "Missing or malformed parameters."}), 400
 
         params = data["queryResult"]["parameters"]
 
-        # Extract and order input features
+        # Validate all required fields
+        required_keys = [
+            "age", "sex", "cp", "trestbps", "chol", "fbs", "restecg",
+            "thalach", "exang", "oldpeak", "slope", "ca", "thal"
+        ]
+
+        for key in required_keys:
+            if key not in params:
+                return jsonify({"fulfillmentText": f"Missing parameter: {key}"}), 400
+
+        # Prepare model input
         input_data = [
             params["age"],
             params["sex"],
@@ -48,17 +58,16 @@ def predict():
             params["thal"]
         ]
 
-        # Scale and predict
         input_array = scaler.transform([input_data])
         prediction = model.predict_proba(input_array)[0][1] * 100
 
-        # Return prediction as fulfillment text
+        # Response for Dialogflow
         response_text = f"Your heart disease risk is {round(prediction, 2)}%. Please consult a doctor if concerned."
         return jsonify({"fulfillmentText": response_text})
 
     except Exception as e:
-        return jsonify({"fulfillmentText": f"Error: {str(e)}"}), 500
+        return jsonify({"fulfillmentText": f"Server error: {str(e)}"}), 500
 
-# Start the server (Render requires port 10000)
+# Required for Render.com deployment
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
