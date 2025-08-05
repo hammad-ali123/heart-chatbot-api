@@ -1,33 +1,40 @@
 from flask import Flask, request, jsonify
-import numpy as np
 import joblib
-import shap
-import xgboost as xgb
+import numpy as np
 
-# Load model and scaler
-model = joblib.load('model.pkl')
-scaler = joblib.load('scaler.pkl')
-explainer = shap.Explainer(model)
+# Load your model and scaler
+model = joblib.load("model.pkl")
+scaler = joblib.load("scaler.pkl")
 
 app = Flask(__name__)
 
-@app.route('/', methods=['GET'])
+# Home route
+@app.route('/')
 def home():
     return "Heart Chatbot API is running"
 
+# Prediction route for Dialogflow
 @app.route('/predict', methods=['POST'])
 def predict():
-    input_data = request.json['data']
-    input_array = scaler.transform([input_data])
-    prediction = model.predict_proba(input_array)[0][1]
+    try:
+        data = request.get_json(force=True)
+        params = data['queryResult']['parameters']
 
-    shap_value = explainer(input_array)
-    feature_impact = shap_value.values[0].tolist()
+        # Extract values in the expected order
+        user_input = [
+            params['age'], params['sex'], params['cp'], params['trestbps'],
+            params['chol'], params['fbs'], params['restecg'], params['thalach'],
+            params['exang'], params['oldpeak'], params['slope'], params['ca'], params['thal']
+        ]
 
-    return jsonify({
-        'risk_score': round(prediction * 100, 2),
-        'explanation': feature_impact
-    })
+        # Preprocess input
+        input_array = scaler.transform([user_input])
+        prediction = model.predict_proba(input_array)[0][1] * 100
 
-if __name__ == '__main__':
-    app.run(port=5000, host='0.0.0.0')  # already correctly set for Render
+        # Response to Dialogflow
+        response_text = f"Your heart disease risk is {round(prediction, 2)}%. Please consider consulting a healthcare professional if you're concerned."
+
+        return jsonify({"fulfillmentText": response_text})
+    
+    except Exception as e:
+        return jsonify({"fulfillmentText": f"Something went wrong: {str(e)}"})
